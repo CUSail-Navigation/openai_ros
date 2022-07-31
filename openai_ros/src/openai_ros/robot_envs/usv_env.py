@@ -34,16 +34,16 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
 
         Args:
         """
-        rospy.logdebug("Start USVSimEnv INIT...")
+        rospy.loginfo("Start USVSimEnv INIT...")
         # Variables that we give through the constructor.
         # None in this case
 
-        # We launch the ROSlaunch that spawns the robot into the world
-        ROSLauncher(
-            rospackage_name="usv_sim",
-            launch_file_name=
-            "/launch/scenarios_launchs/sailboat_scenario1_spawner.launch",
-            ros_ws_abspath=ros_ws_abspath)
+        # TODO We launch the ROSlaunch that spawns the robot into the world
+        # ROSLauncher(
+        #     rospackage_name="usv_sim",
+        #     launch_file_name=
+        #     "/launch/scenarios_launchs/sailboat_scenario1_spawner.launch",
+        #     ros_ws_abspath=ros_ws_abspath)
 
         # Internal Vars
         # Doesnt have any accesibles
@@ -58,18 +58,19 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
                                         start_init_physics_parameters=False,
                                         reset_world_or_sim="WORLD")
 
-        rospy.logdebug("USVSimEnv unpause1...")
+        rospy.loginfo("USVSimEnv unpause1...")
         self.gazebo.unpauseSim()
         #self.controllers_object.reset_controllers()
 
         self._check_all_systems_ready()
 
         # We Start all the ROS related Subscribers and publishers
-        rospy.Subscriber("/state", Odometry, self._state_callback)
-        rospy.Subscriber("/move_usv/goal", Odometry, self._goal_callback)
+        rospy.Subscriber("/sailboat/state", Odometry, self._state_callback)
+        rospy.Subscriber("/sailboat/move_usv/goal", Odometry,
+                         self._goal_callback)
 
         self.publishers_array = []
-        self._joint_state_pub = rospy.Publisher('/joint_setpoint',
+        self._joint_state_pub = rospy.Publisher('/sailboat/joint_setpoint',
                                                 JointState,
                                                 queue_size=1)
 
@@ -79,7 +80,7 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
 
         self.gazebo.pauseSim()
 
-        rospy.logdebug("Finished USVSimEnv INIT...")
+        rospy.loginfo("Finished USVSimEnv INIT...")
 
     # Methods needed by the RobotGazeboEnv
     # ----------------------------
@@ -89,30 +90,30 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
         Checks that all the sensors, publishers and other simulation systems are
         operational.
         """
-        rospy.logdebug("USVSimEnv check_all_systems_ready...")
+        rospy.loginfo("USVSimEnv check_all_systems_ready...")
         self._check_all_sensors_ready()
-        rospy.logdebug("END USVSimEnv _check_all_systems_ready...")
+        rospy.loginfo("END USVSimEnv _check_all_systems_ready...")
         return True
 
     def _check_all_sensors_ready(self):
-        rospy.logdebug("START ALL SENSORS READY")
+        rospy.loginfo("START ALL SENSORS READY")
         self._check_odom_ready()
-        rospy.logdebug("ALL SENSORS READY")
+        rospy.loginfo("ALL SENSORS READY")
 
     def _check_odom_ready(self):
         self.state = None
         self.goal = None
-        rospy.logdebug("Waiting for /state and /move_usv/goal to be READY...")
+        rospy.loginfo("Waiting for /state and /move_usv/goal to be READY...")
         while (self.state is None
                or self.goal is None) and not rospy.is_shutdown():
             try:
-                self.state = rospy.wait_for_message("/state",
+                self.state = rospy.wait_for_message("/sailboat/state",
                                                     Odometry,
                                                     timeout=1.0)
-                self.goal = rospy.wait_for_message("/move_usv/goal",
+                self.goal = rospy.wait_for_message("/sailboat/move_usv/goal",
                                                    Odometry,
                                                    timeout=1.0)
-                rospy.logdebug("Current /state and /move_usv/goal READY=>")
+                rospy.loginfo("Current /state and /move_usv/goal READY=>")
 
             except:
                 rospy.logerr(
@@ -127,30 +128,29 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
 
     def _check_all_publishers_ready(self):
         """
-        Checks that all the publishers are working
-        :return:
+        Check that all the publishers are working
         """
-        rospy.logdebug("START ALL SENSORS READY")
+        rospy.loginfo("START ALL PUBLISHERS READY")
         for publisher_object in self.publishers_array:
             self._check_pub_connection(publisher_object)
-        rospy.logdebug("ALL SENSORS READY")
+        rospy.loginfo("ALL PUBLISHERS READY")
 
     def _check_pub_connection(self, publisher_object):
 
         rate = rospy.Rate(10)  # 10hz
         while publisher_object.get_num_connections(
         ) == 0 and not rospy.is_shutdown():
-            rospy.logdebug(
+            rospy.loginfo(
                 "No susbribers to publisher_object yet so we wait and try again"
             )
             try:
                 rate.sleep()
             except rospy.ROSInterruptException:
-                # This is to avoid error when world is rested, time when backwards.
+                # This is to avoid error when world is reset
                 pass
-        rospy.logdebug("publisher_object Publisher Connected")
+        rospy.loginfo("publisher_object Publisher Connected")
 
-        rospy.logdebug("All Publishers READY")
+        rospy.loginfo("All Publishers READY")
 
     # Methods that the TrainingEnvironment will need to define here as virtual
     # because they will be used in RobotGazeboEnv GrandParentClass and defined in the
@@ -200,7 +200,7 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
             msg.velocity = []
             msg.effort = []
 
-            rospy.logdebug("joint_state_obj>>" + str(msg))
+            rospy.loginfo("joint_state_obj>>" + str(msg))
             publisher_object.publish(msg)
             i += 1
         self.wait_time_for_execute_movement(time_sleep)

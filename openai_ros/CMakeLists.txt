@@ -154,6 +154,22 @@ include_directories(
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
+# install(DIRECTORY src/openai_ros/robot_envs/
+#    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/robot_envs
+#    FILES_MATCHING PATTERN "*" 
+#    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+#                GROUP_READ GROUP_EXECUTE
+#                WORLD_READ WORLD_EXECUTE
+# )
+
+# install(DIRECTORY src/openai_ros/task_envs/
+#    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/task_envs
+#    FILES_MATCHING PATTERN "*" 
+#    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+#                GROUP_READ GROUP_EXECUTE
+#                WORLD_READ WORLD_EXECUTE
+# )
+
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 # install(PROGRAMS
