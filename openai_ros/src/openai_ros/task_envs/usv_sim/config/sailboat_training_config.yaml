@@ -5,17 +5,19 @@ sailboat_training: #namespace
     rudder_upper_limit: 30
     rudder_lower_limit: -30
 
-    work_space: # 3D cube in which Drone is allowed to move
-      x_max: 400
+    work_space: # limits of the usable environment
+      x_max: 150
       x_min: 0
-      y_max: 400
+      y_max: 150
       y_min: 0
 
     goal_epsilon: 5
-    max_distance_from_goal: 800.0 # Maximum distance regitered in observations, has to be bigger than the largest distance of the workspace.
+    max_distance_from_goal: 220.0 # Maximum distance regitered in observations, has to be bigger than the largest distance of the workspace.
     
     number_decimals_precision_obs: 1
 
     done_reward: 1000.0
     vmg_reward_multiplier: 1
     joint_movement_penalty: 0.5
+
+    running_step: 1.0 # Time for each step

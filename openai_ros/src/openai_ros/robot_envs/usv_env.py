@@ -141,7 +141,7 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
         while publisher_object.get_num_connections(
         ) == 0 and not rospy.is_shutdown():
             rospy.loginfo(
-                "No susbribers to publisher_object yet so we wait and try again"
+                "No subsribers to publisher_object yet so we wait and try again"
             )
             try:
                 rate.sleep()
@@ -196,22 +196,19 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
             msg = JointState()
             msg.header = Header()
             msg.name = ['rudder_joint', 'sail_joint']
-            msg.position = [rudder_position, sail_position]
+            msg.position = [
+                np.deg2rad(rudder_position),
+                np.deg2rad(sail_position)
+            ]
             msg.velocity = []
             msg.effort = []
 
-            rospy.loginfo("joint_state_obj>>" + str(msg))
             publisher_object.publish(msg)
             i += 1
         self.wait_time_for_execute_movement(time_sleep)
 
     def wait_time_for_execute_movement(self, time_sleep):
-        """
-        Because this Wamv position is global, we really dont have
-        a way to know if its moving in the direction desired, because it would need
-        to evaluate the diference in position and speed on the local reference.
-        """
-        time.sleep(time_sleep)
+        rospy.sleep(time_sleep)
 
     def get_state(self):
         return self.state
