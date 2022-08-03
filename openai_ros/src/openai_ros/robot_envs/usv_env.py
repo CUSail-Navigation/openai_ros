@@ -4,7 +4,7 @@ import time
 from openai_ros import robot_gazebo_env
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Bool
 from openai_ros.openai_ros_common import ROSLauncher
 
 
@@ -31,6 +31,9 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
 
         Actuators Topic List:
         * /joint_setpoint: Publish the positions of the sail and rudder.
+
+        Reset Topic List:
+        * /episode_reset: Publish True when the episode is reset
 
         Args:
         """
@@ -73,8 +76,12 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
         self._joint_state_pub = rospy.Publisher('/sailboat/joint_setpoint',
                                                 JointState,
                                                 queue_size=1)
-
         self.publishers_array.append(self._joint_state_pub)
+
+        self._reset_pub = rospy.Publisher('/sailboat/episode_reset',
+                                          Bool,
+                                          queue_size=10)
+        self.publishers_array.append(self._reset_pub)
 
         self._check_all_publishers_ready()
 
@@ -192,23 +199,24 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
         Sets the positions of the sail and rudder joints.
         """
         i = 0
-        for publisher_object in self.publishers_array:
-            msg = JointState()
-            msg.header = Header()
-            msg.name = ['rudder_joint', 'sail_joint']
-            msg.position = [
-                np.deg2rad(rudder_position),
-                np.deg2rad(sail_position)
-            ]
-            msg.velocity = []
-            msg.effort = []
+        msg = JointState()
+        msg.header = Header()
+        msg.name = ['rudder_joint', 'sail_joint']
+        msg.position = [np.deg2rad(rudder_position), np.deg2rad(sail_position)]
+        msg.velocity = []
+        msg.effort = []
 
-            publisher_object.publish(msg)
-            i += 1
+        self._joint_state_pub.publish(msg)
+        i += 1
         self.wait_time_for_execute_movement(time_sleep)
 
     def wait_time_for_execute_movement(self, time_sleep):
         rospy.sleep(time_sleep)
+
+    def send_reset_signal(self):
+        msg = Bool()
+        msg.data = True
+        self._reset_pub.publish(msg)
 
     def get_state(self):
         return self.state
