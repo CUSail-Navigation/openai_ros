@@ -70,13 +70,13 @@ class SailboatEnv(usv_env.USVSimEnv):
 
         # end the episode if it goes outsides
         self.work_space_x_max = rospy.get_param(
-            "/sailboat/sailboat_training/work_space/x_max")
+            "/sailboat/training/work_space/x_max")
         self.work_space_x_min = rospy.get_param(
-            "/sailboat/sailboat_training/work_space/x_min")
+            "/sailboat/training/work_space/x_min")
         self.work_space_y_max = rospy.get_param(
-            "/sailboat/sailboat_training/work_space/y_max")
+            "/sailboat/training/work_space/y_max")
         self.work_space_y_min = rospy.get_param(
-            "/sailboat/sailboat_training/work_space/y_min")
+            "/sailboat/training/work_space/y_min")
 
         # threshold to goal
         self.goal_epsilon = rospy.get_param(
@@ -93,22 +93,21 @@ class SailboatEnv(usv_env.USVSimEnv):
         # We place the maximum and minimum values of observations
 
         # TODO what are the observations? For now let's say:
-        # workspace x, y
         # linear velocity x and y
         # angular velocity
         # joint positions of sail and rudder
-        # relative wind vector x and y normalized so max is 1 (i.e. unit vector at rel wind angle)
+        # relative wind vector x and y normalized so max magnitude is 1 (i.e. unit vector at rel wind angle)
         # distance from goal in x and y directions
 
         high = numpy.array([
-            self.work_space_x_max, self.work_space_y_max, 100.0, 100.0, 100.0,
-            self.sail_upper_limit, self.rudder_upper_limit, 1.0, 1.0,
-            self.max_distance_from_goal, self.max_distance_from_goal
+            100.0, 100.0, 100.0, self.sail_upper_limit,
+            self.rudder_upper_limit, 1.0, 1.0, self.max_distance_from_goal,
+            self.max_distance_from_goal
         ])
 
         low = numpy.array([
-            self.work_space_x_min, self.work_space_y_min, 0.0, 0.0, 0.0,
-            self.sail_lower_limit, self.rudder_lower_limit, 0.0, 0.0, 0.0, 0.0
+            -100.0, -100.0, -100.0, self.sail_lower_limit,
+            self.rudder_lower_limit, -1.0, -1.0, 0.0, 0.0
         ])
 
         self.observation_space = spaces.Box(low, high)
@@ -171,8 +170,8 @@ class SailboatEnv(usv_env.USVSimEnv):
         current_position.x = odom.pose.pose.position.x
         current_position.y = odom.pose.pose.position.y
 
-        self.prev_x = current_position.x
-        self.prev_y = current_position.y
+        self.x = current_position.x
+        self.y = current_position.y
 
         self.previous_distance_x, self.previous_distance_y = self.get_distance_from_goal(
             current_position)
@@ -213,7 +212,6 @@ class SailboatEnv(usv_env.USVSimEnv):
         rospy.loginfo("Start Get Observation ==>")
 
         # TODO what are the observations? For now let's say:
-        # workspace x, y
         # linear velocity x and y
         # angular velocity
         # joint positions of sail and rudder
@@ -224,11 +222,11 @@ class SailboatEnv(usv_env.USVSimEnv):
         base_position = odom.pose.pose.position
         base_orientation_quat = odom.pose.pose.orientation
 
-        vel_x = (base_position.x - self.prev_x) / self.running_step
-        vel_y = (base_position.y - self.prev_y) / self.running_step
+        vel_x = (base_position.x - self.x) / self.running_step
+        vel_y = (base_position.y - self.y) / self.running_step
 
-        self.prev_x = base_position.x
-        self.prev_y = base_position.y
+        self.x = base_position.x
+        self.y = base_position.y
 
         # TODO only using yaw for now, more params means more sim to real gap
         base_roll, base_pitch, base_yaw = self.get_orientation_euler(
@@ -240,9 +238,6 @@ class SailboatEnv(usv_env.USVSimEnv):
         distance_x, distance_y = self.get_distance_from_goal(base_position)
 
         observation = []
-        observation.append(round(base_position.x, self.dec_obs))
-        observation.append(round(base_position.y, self.dec_obs))
-
         observation.append(round(vel_x, self.dec_obs))
         observation.append(round(vel_y, self.dec_obs))
         observation.append(round(base_speed_angular_yaw, self.dec_obs))
@@ -263,24 +258,30 @@ class SailboatEnv(usv_env.USVSimEnv):
         We consider the episode done if:
         1) The sailboat is ouside the workspace
         2) It got to the desired point
-        3) More than 500 (TODO is this enough/too much?) steps have passed
+        3) More than n steps have passed
         4) VMG is 0 for 3 steps
         """
-        if self.total_steps > self.nsteps:
+        if self.total_steps >= self.nsteps:
+            self.send_reset_signal()
             return True
 
         if self.stalled_steps > 2:
+            self.send_reset_signal()
             return True
 
         current_position = Vector3()
-        current_position.x = observations[0]
-        current_position.y = observations[1]
+        current_position.x = self.x
+        current_position.y = self.y
 
         is_inside_corridor = self.is_inside_workspace(current_position)
         has_reached_goal = self.is_in_desired_position(current_position,
                                                        self.goal_epsilon)
 
-        return (not is_inside_corridor) or has_reached_goal
+        done = (not is_inside_corridor) or has_reached_goal
+        if done:
+            self.send_reset_signal()
+
+        return done
 
     def _compute_reward(self, observations, done):
         """
@@ -292,12 +293,12 @@ class SailboatEnv(usv_env.USVSimEnv):
 
         # We only consider the plane, the fluctuation in z is mainly due to waves
         current_position = Point()
-        current_position.x = observations[0]
-        current_position.y = observations[1]
+        current_position.x = self.x
+        current_position.y = self.y
 
         current_velocity = Point()
-        current_velocity.x = observations[2]
-        current_velocity.y = observations[3]
+        current_velocity.x = observations[0]
+        current_velocity.y = observations[1]
 
         rospy.loginfo("#### Compute Reward ####")
         rospy.loginfo("Current position: {}, {}".format(
@@ -321,8 +322,8 @@ class SailboatEnv(usv_env.USVSimEnv):
             vmg = self.velocity_made_good(current_velocity, current_position,
                                           goal)
 
-            rospy.loginfo("VMG IS {}".format(vmg))
-            reward += self.vmg_reward * vmg
+            rospy.loginfo("VMG^3 IS {}".format(vmg**3))
+            reward += self.vmg_reward * vmg**3
 
             if numpy.abs(vmg) < 1e-5:
                 self.stalled_steps += 1
