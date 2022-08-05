@@ -132,6 +132,10 @@ class SailboatEnv(usv_env.USVSimEnv):
         self.vmg_reward = rospy.get_param(
             "/sailboat/sailboat_training/vmg_reward_multiplier")
 
+        # reward some multiple * dist_closer_to_goal
+        self.dist_reward = rospy.get_param(
+            '/sailboat/sailboat_training/dist_reward_multiplier')
+
         # penalize moving the joints too quickly/erratically
         # multiply penalty * displacement.norm()
         self.joint_penalty = rospy.get_param(
@@ -173,8 +177,9 @@ class SailboatEnv(usv_env.USVSimEnv):
         self.x = current_position.x
         self.y = current_position.y
 
-        self.previous_distance_x, self.previous_distance_y = self.get_distance_from_goal(
-            current_position)
+        x, y = self.get_distance_from_goal(current_position)
+
+        self.prev_distance = numpy.sqrt(x**2 + y**2)
 
     def _set_action(self, action):
         """
@@ -329,6 +334,13 @@ class SailboatEnv(usv_env.USVSimEnv):
                 self.stalled_steps += 1
             else:
                 self.stalled_steps = 0
+
+            # reward based on moving closer to the goal
+            dist = numpy.sqrt(observations[7]**2 + observations[8]**2)
+            rospy.loginfo(
+                'DECREASE IN DISTANCE IS {}'.format(self.prev_distance - dist))
+            reward += self.dist_reward * (self.prev_distance - dist)
+            self.prev_distance = dist
 
             # penalize based on the change in joint positions here
             sail_diff = self.sail_angle - self.prev_sail_angle
