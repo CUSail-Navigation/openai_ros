@@ -1,6 +1,6 @@
 sailboat_training: #namespace
 
-    nsteps: 50
+    nsteps: 150
 
     sail_upper_limit: 90
     sail_lower_limit: -90
@@ -12,9 +12,11 @@ sailboat_training: #namespace
     
     number_decimals_precision_obs: 1
 
-    done_reward: 1000.0
+    done_reward: 100.0
     vmg_reward_multiplier: 1
-    dist_reward_multiplier: 1
+    dist_reward_multiplier: 5
     joint_movement_penalty: 0
+    time_penalty: 3
+    stall_kill: False
 
     running_step: 4.0 # Time for each step

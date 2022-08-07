@@ -141,6 +141,14 @@ class SailboatEnv(usv_env.USVSimEnv):
         self.joint_penalty = rospy.get_param(
             "/sailboat/sailboat_training/joint_movement_penalty")
 
+        # point deduction per step (to encourage finding the shortest path
+        self.time_penalty = rospy.get_param(
+            '/sailboat/sailboat_training/time_penalty')
+
+        # stop the episode after 3 stalled (vmg=0) steps
+        self.stall_kill = rospy.get_param(
+            '/sailboat/sailboat_training/stall_kill')
+
         # time to wait between actions
         self.running_step = rospy.get_param(
             '/sailboat/sailboat_training/running_step')
@@ -270,7 +278,7 @@ class SailboatEnv(usv_env.USVSimEnv):
             self.send_reset_signal()
             return True
 
-        if self.stalled_steps > 2:
+        if self.stall_kill and (self.stalled_steps > 2):
             self.send_reset_signal()
             return True
 
@@ -349,6 +357,8 @@ class SailboatEnv(usv_env.USVSimEnv):
                                                        rudder_diff**2))
             reward -= penalty
             rospy.loginfo("JOINT PENALTY IS {}".format(penalty))
+
+            reward -= self.time_penalty
 
         else:
 
