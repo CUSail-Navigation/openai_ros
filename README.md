@@ -10,7 +10,6 @@ Execute the following commands:
         git clone git@github.com:CUSail-Navigation/openai_ros.git
         cd ~/catkin_ws
         catkin_make_isolated --install -j1
-        source devel/setup.bash
         rosdep install openai_ros
 
 Make soft links from the install location to the robot_envs and task_envs directories:
