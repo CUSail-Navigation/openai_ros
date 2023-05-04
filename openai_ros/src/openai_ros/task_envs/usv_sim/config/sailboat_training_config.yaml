@@ -1,6 +1,6 @@
 sailboat_training: #namespace
 
-    nsteps: 150
+    nsteps: 300
 
     sail_upper_limit: 90
     sail_lower_limit: -90
@@ -19,4 +19,4 @@ sailboat_training: #namespace
     time_penalty: 3
     stall_kill: False
 
-    running_step: 4.0 # Time for each step
+    running_step: 1.0 # Time for each step

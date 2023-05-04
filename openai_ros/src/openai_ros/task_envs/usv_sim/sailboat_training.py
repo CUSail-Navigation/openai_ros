@@ -6,6 +6,7 @@ from gym.envs.registration import register
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Vector3
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float64MultiArray
 from tf.transformations import euler_from_quaternion
 from openai_ros.task_envs.task_commons import LoadYamlFileParamsTest
 from openai_ros.openai_ros_common import ROSLauncher
@@ -152,6 +153,9 @@ class SailboatEnv(usv_env.USVSimEnv):
         # time to wait between actions
         self.running_step = rospy.get_param(
             '/sailboat/sailboat_training/running_step')
+        
+        # Read the wind speed when it changes
+        rospy.Subscriber('/sailboat/uwsim/wind_speed', Float64MultiArray, self.read_wind)
 
         rospy.loginfo("END SailboatEnv INIT...")
 
@@ -470,3 +474,9 @@ class SailboatEnv(usv_env.USVSimEnv):
                 is_inside = True
 
         return is_inside
+
+    def read_wind(self, msg):
+        if len(msg.data):
+            self.wind_x = msg.data[0]
+            self.wind_y = msg.data[1]
+            rospy.loginfo("### UPDATED WIND SPEED {} {} ###".format(self.wind_x, self.wind_y))
