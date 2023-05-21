@@ -293,8 +293,10 @@ class SailboatEnv(usv_env.USVSimEnv):
         is_inside_corridor = self.is_inside_workspace(current_position)
         has_reached_goal = self.is_in_desired_position(current_position,
                                                        self.goal_epsilon)
-
-        done = (not is_inside_corridor) or has_reached_goal
+        if has_reached_goal:
+            self.send_hit_waypoint()
+            
+        done = (not is_inside_corridor)
         if done:
             self.send_reset_signal()
 
@@ -330,46 +332,43 @@ class SailboatEnv(usv_env.USVSimEnv):
 
         reward = 0.0
 
-        if not done:
-            # reward based on velocity made good
-            goal = Point()
-            goal.x = self.goal.pose.pose.position.x
-            goal.y = self.goal.pose.pose.position.y
+        # reward based on velocity made good
+        goal = Point()
+        goal.x = self.goal.pose.pose.position.x
+        goal.y = self.goal.pose.pose.position.y
 
-            vmg = self.velocity_made_good(current_velocity, current_position,
-                                          goal)
+        vmg = self.velocity_made_good(current_velocity, current_position,
+                                        goal)
 
-            rospy.loginfo("VMG^3 IS {}".format(vmg**3))
-            reward += self.vmg_reward * vmg**3
+        rospy.loginfo("VMG^3 IS {}".format(vmg**3))
+        reward += self.vmg_reward * vmg**3
 
-            if numpy.abs(vmg) < 1e-5:
-                self.stalled_steps += 1
-            else:
-                self.stalled_steps = 0
-
-            # reward based on moving closer to the goal
-            dist = numpy.sqrt(observations[7]**2 + observations[8]**2)
-            rospy.loginfo(
-                'DECREASE IN DISTANCE IS {}'.format(self.prev_distance - dist))
-            reward += self.dist_reward * (self.prev_distance - dist)
-            self.prev_distance = dist
-
-            # penalize based on the change in joint positions here
-            sail_diff = self.sail_angle - self.prev_sail_angle
-            rudder_diff = self.rudder_angle - self.prev_rudder_angle
-            penalty = self.joint_penalty * (numpy.sqrt(sail_diff**2 +
-                                                       rudder_diff**2))
-            reward -= penalty
-            rospy.loginfo("JOINT PENALTY IS {}".format(penalty))
-
-            reward -= self.time_penalty
-
+        if numpy.abs(vmg) < 1e-5:
+            self.stalled_steps += 1
         else:
+            self.stalled_steps = 0
 
-            if reached_goal:
-                rospy.loginfo("Reached goal reward: {}".format(
-                    self.done_reward))
-                reward = self.done_reward
+        # reward based on moving closer to the goal
+        dist = numpy.sqrt(observations[7]**2 + observations[8]**2)
+        rospy.loginfo(
+            'DECREASE IN DISTANCE IS {}'.format(self.prev_distance - dist))
+        reward += self.dist_reward * (self.prev_distance - dist)
+        self.prev_distance = dist
+
+        # penalize based on the change in joint positions here
+        sail_diff = self.sail_angle - self.prev_sail_angle
+        rudder_diff = self.rudder_angle - self.prev_rudder_angle
+        penalty = self.joint_penalty * (numpy.sqrt(sail_diff**2 +
+                                                    rudder_diff**2))
+        reward -= penalty
+        rospy.loginfo("JOINT PENALTY IS {}".format(penalty))
+
+        reward -= self.time_penalty
+
+        if reached_goal:
+            rospy.loginfo("Reached goal reward: {}".format(
+                self.done_reward))
+            reward = self.done_reward
 
         rospy.loginfo("reward=" + str(reward))
         self.total_reward += reward

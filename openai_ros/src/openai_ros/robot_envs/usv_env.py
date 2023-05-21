@@ -83,6 +83,11 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
                                           queue_size=10)
         self.publishers_array.append(self._reset_pub)
 
+        self._hit_waypoint_pub = rospy.Publisher('/sailboat/hit_waypoint',
+                                                 Bool,
+                                                 queue_size=10)
+        self.publishers_array.append(self._hit_waypoint_pub)
+
         self._check_all_publishers_ready()
 
         self.gazebo.pauseSim()
@@ -217,6 +222,11 @@ class USVSimEnv(robot_gazebo_env.RobotGazeboEnv):
         msg = Bool()
         msg.data = True
         self._reset_pub.publish(msg)
+
+    def send_hit_waypoint(self):
+        msg = Bool()
+        msg.data = True
+        self._hit_waypoint_pub.publish(msg)
 
     def get_state(self):
         return self.state
