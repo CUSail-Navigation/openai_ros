@@ -50,6 +50,9 @@ class SailboatEnv(usv_env.USVSimEnv):
         self.prev_sail_angle = 0.0
         self.prev_rudder_angle = 0.0
 
+        self.prev_x = None
+        self.prev_y = None
+
         # We set the reward range, which is not compulsory but here we do it.
         self.reward_range = (-numpy.inf, numpy.inf)
 
@@ -100,15 +103,15 @@ class SailboatEnv(usv_env.USVSimEnv):
         # relative wind vector x and y normalized so max magnitude is 1 (i.e. unit vector at rel wind angle)
         # distance from goal in x and y directions
 
+        # TODO now its relative wind direction, yaw, dist x, dist y
+
         high = numpy.array([
-            100.0, 100.0, 100.0, self.sail_upper_limit,
-            self.rudder_upper_limit, 1.0, 1.0, self.max_distance_from_goal,
+            2 * numpy.pi, 2 * numpy.pi, self.max_distance_from_goal,
             self.max_distance_from_goal
         ])
 
         low = numpy.array([
-            -100.0, -100.0, -100.0, self.sail_lower_limit,
-            self.rudder_lower_limit, -1.0, -1.0, 0.0, 0.0
+            0.0, 0.0, 0.0, 0.0
         ])
 
         self.observation_space = spaces.Box(low, high)
@@ -188,6 +191,8 @@ class SailboatEnv(usv_env.USVSimEnv):
 
         self.x = current_position.x
         self.y = current_position.y
+        self.prev_x = self.x
+        self.prev_y = self.y
 
         x, y = self.get_distance_from_goal(current_position)
 
@@ -242,6 +247,8 @@ class SailboatEnv(usv_env.USVSimEnv):
         vel_x = (base_position.x - self.x) / self.running_step
         vel_y = (base_position.y - self.y) / self.running_step
 
+        self.prev_x = self.x
+        self.prev_y = self.y
         self.x = base_position.x
         self.y = base_position.y
 
@@ -254,16 +261,21 @@ class SailboatEnv(usv_env.USVSimEnv):
 
         distance_x, distance_y = self.get_distance_from_goal(base_position)
 
+        rel_wind_angle = self.relative_wind_angle(base_yaw)
+
         observation = []
-        observation.append(round(vel_x, self.dec_obs))
-        observation.append(round(vel_y, self.dec_obs))
-        observation.append(round(base_speed_angular_yaw, self.dec_obs))
+        # observation.append(round(vel_x, self.dec_obs))
+        # observation.append(round(vel_y, self.dec_obs))
+        # observation.append(round(base_speed_angular_yaw, self.dec_obs))
 
-        observation.append(round(self.sail_angle, self.dec_obs))
-        observation.append(round(self.rudder_angle, self.dec_obs))
+        # observation.append(round(self.sail_angle, self.dec_obs))
+        # observation.append(round(self.rudder_angle, self.dec_obs))
 
-        observation.append(round(wind_rel_x, self.dec_obs))
-        observation.append(round(wind_rel_y, self.dec_obs))
+        # observation.append(round(wind_rel_x, self.dec_obs))
+        # observation.append(round(wind_rel_y, self.dec_obs))
+
+        observation.append(round(rel_wind_angle, self.dec_obs))
+        observation.append(round(base_yaw, self.dec_obs))
 
         observation.append(round(distance_x, self.dec_obs))
         observation.append(round(distance_y, self.dec_obs))
@@ -316,8 +328,8 @@ class SailboatEnv(usv_env.USVSimEnv):
         current_position.y = self.y
 
         current_velocity = Point()
-        current_velocity.x = observations[0]
-        current_velocity.y = observations[1]
+        current_velocity.x = (self.x - self.prev_x) / self.running_step
+        current_velocity.y = (self.y - self.prev_y) / self.running_step
 
         rospy.loginfo("#### Compute Reward ####")
         rospy.loginfo("Current position: {}, {}".format(
@@ -349,7 +361,7 @@ class SailboatEnv(usv_env.USVSimEnv):
             self.stalled_steps = 0
 
         # reward based on moving closer to the goal
-        dist = numpy.sqrt(observations[7]**2 + observations[8]**2)
+        dist = numpy.sqrt(observations[-2]**2 + observations[-1]**2)
         rospy.loginfo(
             'DECREASE IN DISTANCE IS {}'.format(self.prev_distance - dist))
         reward += self.dist_reward * (self.prev_distance - dist)
@@ -411,6 +423,12 @@ class SailboatEnv(usv_env.USVSimEnv):
         x = numpy.cos(rel_angle)
         y = numpy.sin(rel_angle)
         return x, y
+    
+    def relative_wind_angle(self, yaw):
+        # all in radians
+        abs_angle = numpy.arctan2(self.wind_y, self.wind_x)
+        rel_angle = (abs_angle - yaw) % (2 * numpy.pi)
+        return rel_angle
 
     def get_distance_from_goal(self, current_position):
         goal_x = self.goal.pose.pose.position.x
